@@ -28,6 +28,10 @@ class AutoLearnJPTester:
         """Test the root API endpoint"""
         try:
             response = self.session.get(f"{API_BASE}/")
+            print(f"DEBUG: Response status: {response.status_code}")
+            print(f"DEBUG: Response text: {response.text}")
+            print(f"DEBUG: Response headers: {dict(response.headers)}")
+            
             success = response.status_code == 200 and "AutoLearn JP API" in response.text
             self.log_test("Root Endpoint", success, f"Status: {response.status_code}")
             return success
