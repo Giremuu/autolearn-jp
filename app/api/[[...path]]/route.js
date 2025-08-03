@@ -100,20 +100,20 @@ function parseMarkdownWord(content, filename) {
 
 // Route handler function
 async function handleRoute(request, { params }) {
-  const { path = [] } = params
-  const route = `/${path.join('/')}`
+  const { path = [] } = params || {}
+  const route = path.length === 0 ? '/' : `/${path.join('/')}`
   const method = request.method
 
   console.log(`DEBUG: Route: ${route}, Method: ${method}, Path: ${JSON.stringify(path)}`)
 
   try {
-    // Root endpoint - test without MongoDB first
-    if ((route === '/' || route === '') && method === 'GET') {
+    const db = await connectToMongo()
+
+    // Root endpoint
+    if (route === '/' && method === 'GET') {
       console.log('DEBUG: Handling root endpoint')
       return handleCORS(NextResponse.json({ message: "AutoLearn JP API" }))
     }
-
-    const db = await connectToMongo()
 
     // Authentication endpoints
     if (route === '/auth/login' && method === 'POST') {
