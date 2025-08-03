@@ -29,6 +29,75 @@ export async function OPTIONS() {
   return handleCORS(new NextResponse(null, { status: 200 }))
 }
 
+// Session storage (in production, use Redis or database)
+const sessions = new Map()
+
+// Default admin user (in production, use proper password hashing)
+const DEFAULT_ADMIN = {
+  username: 'admin',
+  password: 'autolearn2024', // Change this!
+  role: 'admin'
+}
+
+const GUEST_USER = {
+  username: 'guest',
+  password: 'guest',
+  role: 'guest'
+}
+
+// Parse markdown file content
+function parseMarkdownWord(content, filename) {
+  try {
+    const lines = content.split('\n')
+    let word = {
+      id: uuidv4(),
+      filename: filename,
+      createdAt: new Date()
+    }
+
+    // Extract title and kanji
+    const titleMatch = content.match(/##\s*🈶\s*Kanji\s*[:：]\s*([^-]+)\s*-\s*(.+)/)
+    if (titleMatch) {
+      word.kanji = titleMatch[1].trim()
+      word.traductionFr = titleMatch[2].trim()
+    }
+
+    // Extract metadata using regex
+    const extractField = (pattern) => {
+      const match = content.match(pattern)
+      return match ? match[1].trim() : null
+    }
+
+    // Extract readings and translations
+    word.onyomi = extractField(/Lecture\s+\*onyomi\*\s*[:：]\s*([^(\n]+)/)
+    word.kunyomi = extractField(/Lecture\s+\*kunyomi\*\s*[:：]\s*([^(\n]+)/)
+    word.traductionEn = extractField(/Traduction\s+EN\s*[:：]\s*(.+)/)
+
+    // Extract type (remove # symbol)
+    const typeMatch = extractField(/Type\s*[:：]\s*#?(\w+)/)
+    if (typeMatch) {
+      word.type = typeMatch.replace('#', '')
+    }
+
+    // Extract theme (remove # symbol)
+    const themeMatch = extractField(/Thème\s*[:：]\s*#?(\w+)/)
+    if (themeMatch) {
+      word.theme = themeMatch.replace('#', '')
+    }
+
+    // Extract tags
+    const tagsMatch = content.match(/Tags\s*[:：]\s*(.+)/)
+    if (tagsMatch) {
+      word.tags = tagsMatch[1].split('#').filter(tag => tag.trim()).map(tag => tag.trim())
+    }
+
+    return word
+  } catch (error) {
+    console.error('Error parsing markdown:', error)
+    return null
+  }
+}
+
 // Route handler function
 async function handleRoute(request, { params }) {
   const { path = [] } = params
@@ -38,47 +107,119 @@ async function handleRoute(request, { params }) {
   try {
     const db = await connectToMongo()
 
-    // Root endpoint - GET /api/root (since /api/ is not accessible with catch-all)
-    if (route === '/root' && method === 'GET') {
-      return handleCORS(NextResponse.json({ message: "Hello World" }))
-    }
-    // Root endpoint - GET /api/root (since /api/ is not accessible with catch-all)
+    // Root endpoint
     if (route === '/' && method === 'GET') {
-      return handleCORS(NextResponse.json({ message: "Hello World" }))
+      return handleCORS(NextResponse.json({ message: "AutoLearn JP API" }))
     }
 
-    // Status endpoints - POST /api/status
-    if (route === '/status' && method === 'POST') {
+    // Authentication endpoints
+    if (route === '/auth/login' && method === 'POST') {
       const body = await request.json()
-      
-      if (!body.client_name) {
-        return handleCORS(NextResponse.json(
-          { error: "client_name is required" }, 
-          { status: 400 }
-        ))
+      const { username, password } = body
+
+      let user = null
+      if (username === DEFAULT_ADMIN.username && password === DEFAULT_ADMIN.password) {
+        user = { ...DEFAULT_ADMIN }
+        delete user.password
+      } else if (username === GUEST_USER.username && password === GUEST_USER.password) {
+        user = { ...GUEST_USER }
+        delete user.password
       }
 
-      const statusObj = {
-        id: uuidv4(),
-        client_name: body.client_name,
-        timestamp: new Date()
+      if (user) {
+        const sessionId = uuidv4()
+        sessions.set(sessionId, user)
+        
+        const response = NextResponse.json(user)
+        response.cookies.set('session', sessionId, { 
+          httpOnly: true, 
+          secure: false, 
+          maxAge: 86400 
+        })
+        return handleCORS(response)
       }
 
-      await db.collection('status_checks').insertOne(statusObj)
-      return handleCORS(NextResponse.json(statusObj))
+      return handleCORS(NextResponse.json({ error: 'Invalid credentials' }, { status: 401 }))
     }
 
-    // Status endpoints - GET /api/status
-    if (route === '/status' && method === 'GET') {
-      const statusChecks = await db.collection('status_checks')
+    if (route === '/auth/check' && method === 'GET') {
+      const sessionId = request.cookies.get('session')?.value
+      if (sessionId && sessions.has(sessionId)) {
+        return handleCORS(NextResponse.json(sessions.get(sessionId)))
+      }
+      return handleCORS(NextResponse.json({ error: 'Not authenticated' }, { status: 401 }))
+    }
+
+    if (route === '/auth/logout' && method === 'POST') {
+      const sessionId = request.cookies.get('session')?.value
+      if (sessionId) {
+        sessions.delete(sessionId)
+      }
+      const response = NextResponse.json({ success: true })
+      response.cookies.delete('session')
+      return handleCORS(response)
+    }
+
+    // Check authentication for protected routes
+    const sessionId = request.cookies.get('session')?.value
+    if (!sessionId || !sessions.has(sessionId)) {
+      return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+    }
+
+    const user = sessions.get(sessionId)
+
+    // Words endpoints
+    if (route === '/words' && method === 'GET') {
+      const words = await db.collection('words')
         .find({})
-        .limit(1000)
+        .sort({ createdAt: -1 })
         .toArray()
 
-      // Remove MongoDB's _id field from response
-      const cleanedStatusChecks = statusChecks.map(({ _id, ...rest }) => rest)
-      
-      return handleCORS(NextResponse.json(cleanedStatusChecks))
+      const cleanedWords = words.map(({ _id, ...rest }) => rest)
+      return handleCORS(NextResponse.json(cleanedWords))
+    }
+
+    // Upload endpoint - Admin only
+    if (route === '/upload' && method === 'POST') {
+      if (user.role !== 'admin') {
+        return handleCORS(NextResponse.json({ error: 'Admin access required' }, { status: 403 }))
+      }
+
+      const formData = await request.formData()
+      const files = formData.getAll('files')
+
+      if (!files || files.length === 0) {
+        return handleCORS(NextResponse.json({ error: 'No files provided' }, { status: 400 }))
+      }
+
+      // Clear existing words
+      await db.collection('words').deleteMany({})
+
+      let processed = 0
+      const errors = []
+
+      for (const file of files) {
+        if (!file.name.endsWith('.md')) continue
+
+        try {
+          const content = await file.text()
+          const word = parseMarkdownWord(content, file.name)
+          
+          if (word && word.kanji) {
+            await db.collection('words').insertOne(word)
+            processed++
+          } else {
+            errors.push(`Failed to parse ${file.name}`)
+          }
+        } catch (error) {
+          errors.push(`Error processing ${file.name}: ${error.message}`)
+        }
+      }
+
+      return handleCORS(NextResponse.json({ 
+        processed, 
+        errors: errors.length > 0 ? errors : undefined 
+      }))
     }
 
     // Route not found
