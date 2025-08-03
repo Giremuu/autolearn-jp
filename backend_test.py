@@ -11,7 +11,7 @@ import tempfile
 from typing import Dict, Any, Optional
 
 # Get base URL from environment
-BASE_URL = "https://d68e43ef-b93a-4287-a9e8-2f013f952d2e.preview.emergentagent.com"
+BASE_URL = "http://localhost:3000"
 API_BASE = f"{BASE_URL}/api"
 
 class AutoLearnJPTester:
