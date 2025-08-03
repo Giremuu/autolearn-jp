@@ -10,9 +10,11 @@ function handleCORS(response) {
 }
 
 export async function GET() {
+  console.log('DEBUG: Root API route called')
   return handleCORS(NextResponse.json({ message: "AutoLearn JP API" }))
 }
 
 export async function OPTIONS() {
+  console.log('DEBUG: Root API OPTIONS called')
   return handleCORS(new NextResponse(null, { status: 200 }))
 }
