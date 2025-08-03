@@ -148,36 +148,165 @@ export default function App() {
     }
   }
 
+  // Parse markdown file content (same logic as backend)
+  const parseMarkdownWord = (content, filename) => {
+    try {
+      let word = {
+        id: Date.now() + Math.random(), // Simple unique ID
+        filename: filename,
+        createdAt: new Date()
+      }
+
+      // Extract title and kanji
+      const titleMatch = content.match(/##\s*🈶\s*Kanji\s*[:：]\s*([^-]+)\s*-\s*(.+)/)
+      if (titleMatch) {
+        word.kanji = titleMatch[1].trim()
+        word.traductionFr = titleMatch[2].trim()
+      }
+
+      // Extract metadata using regex
+      const extractField = (pattern) => {
+        const match = content.match(pattern)
+        return match ? match[1].trim() : null
+      }
+
+      // Extract readings and translations
+      word.onyomi = extractField(/Lecture\s+\*onyomi\*\s*[:：]\s*([^(\n]+)/)
+      word.kunyomi = extractField(/Lecture\s+\*kunyomi\*\s*[:：]\s*([^(\n]+)/)
+      word.traductionEn = extractField(/Traduction\s+EN\s*[:：]\s*(.+)/)
+
+      // Extract type (remove # symbol)
+      const typeMatch = extractField(/Type\s*[:：]\s*#?(\w+)/)
+      if (typeMatch) {
+        word.type = typeMatch.replace('#', '')
+      }
+
+      // Extract theme (remove # symbol)  
+      const themeMatch = extractField(/Thème\s*[:：]\s*#?(\w+)/)
+      if (themeMatch) {
+        word.theme = themeMatch.replace('#', '')
+      }
+
+      // Extract tags
+      const tagsMatch = content.match(/Tags\s*[:：]\s*(.+)/)
+      if (tagsMatch) {
+        word.tags = tagsMatch[1].split('#').filter(tag => tag.trim()).map(tag => tag.trim())
+      }
+
+      return word
+    } catch (error) {
+      console.error('Error parsing markdown:', error)
+      return null
+    }
+  }
+
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files)
     if (files.length === 0) return
 
     setIsUploading(true)
     setUploadMessage('')
-
+    
     try {
-      const formData = new FormData()
-      files.forEach(file => {
-        if (file.name.endsWith('.md')) {
-          formData.append('files', file)
+      const newWords = []
+      let processed = 0
+      const errors = []
+
+      // Process each .md file
+      for (const file of files) {
+        if (!file.name.endsWith('.md')) continue
+
+        try {
+          const content = await file.text()
+          const word = parseMarkdownWord(content, file.name)
+          
+          if (word && word.kanji) {
+            newWords.push(word)
+            processed++
+          } else {
+            errors.push(`Échec du parsing de ${file.name}`)
+          }
+        } catch (error) {
+          errors.push(`Erreur avec ${file.name}: ${error.message}`)
         }
-      })
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        setUploadMessage(`${result.processed} mots importés avec succès !`)
-        loadWords()
-      } else {
-        const error = await response.json()
-        setUploadMessage(`Erreur: ${error.error}`)
       }
+
+      // Update state with new words (replace existing)
+      setWords(newWords)
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('autolearn-words', JSON.stringify(newWords))
+      
+      let message = `${processed} mots importés avec succès !`
+      if (errors.length > 0) {
+        message += ` ${errors.length} erreurs détectées.`
+        console.log('Erreurs d\'import:', errors)
+      }
+      
+      setUploadMessage(message)
+      
     } catch (error) {
-      setUploadMessage('Erreur lors de l\'upload')
+      console.error('Erreur générale:', error)
+      setUploadMessage('Erreur lors de l\'import des fichiers')
+    }
+
+    setIsUploading(false)
+  }
+
+  const handleFolderUpload = async (event) => {
+    const files = Array.from(event.target.files)
+    if (files.length === 0) return
+
+    // Filter only .md files
+    const mdFiles = files.filter(file => file.name.endsWith('.md'))
+    
+    if (mdFiles.length === 0) {
+      setUploadMessage('Aucun fichier .md trouvé dans ce dossier')
+      return
+    }
+
+    setIsUploading(true)
+    setUploadMessage(`Traitement de ${mdFiles.length} fichiers .md...`)
+    
+    try {
+      const newWords = []
+      let processed = 0
+      const errors = []
+
+      // Process each .md file
+      for (const file of mdFiles) {
+        try {
+          const content = await file.text()
+          const word = parseMarkdownWord(content, file.name)
+          
+          if (word && word.kanji) {
+            newWords.push(word)
+            processed++
+          } else {
+            errors.push(`Échec du parsing de ${file.name}`)
+          }
+        } catch (error) {
+          errors.push(`Erreur avec ${file.name}: ${error.message}`)
+        }
+      }
+
+      // Update state with new words (replace existing)
+      setWords(newWords)
+      
+      // Store in localStorage for persistence  
+      localStorage.setItem('autolearn-words', JSON.stringify(newWords))
+      
+      let message = `✅ ${processed} mots importés depuis ${mdFiles.length} fichiers !`
+      if (errors.length > 0) {
+        message += ` ⚠️ ${errors.length} erreurs détectées (voir console).`
+        console.log('Erreurs d\'import:', errors)
+      }
+      
+      setUploadMessage(message)
+      
+    } catch (error) {
+      console.error('Erreur générale:', error)
+      setUploadMessage('❌ Erreur lors de l\'import du dossier')
     }
 
     setIsUploading(false)
