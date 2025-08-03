@@ -526,26 +526,78 @@ export default function App() {
                 <CardHeader>
                   <CardTitle>Importer des fichiers Obsidian</CardTitle>
                   <CardDescription>
-                    Sélectionnez vos fichiers .md exportés d'Obsidian
+                    Sélectionnez vos fichiers .md ou un dossier complet exporté d'Obsidian
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed border-muted rounded-lg p-6">
-                    <input
-                      type="file"
-                      multiple
-                      accept=".md"
-                      onChange={handleFileUpload}
-                      disabled={isUploading}
-                      className="w-full"
-                    />
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Sélectionnez plusieurs fichiers .md à la fois
-                    </p>
+                <CardContent className="space-y-6">
+                  {/* Folder Upload */}
+                  <div className="border-2 border-dashed border-primary/50 rounded-lg p-6 bg-primary/5">
+                    <div className="text-center space-y-4">
+                      <Upload className="w-12 h-12 mx-auto text-primary" />
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">📁 Importer un dossier complet</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Sélectionnez le dossier contenant tous vos fichiers .md d'Obsidian
+                        </p>
+                        <input
+                          type="file"
+                          webkitdirectory="true"
+                          multiple
+                          onChange={handleFolderUpload}
+                          disabled={isUploading}
+                          className="hidden"
+                          id="folder-upload"
+                        />
+                        <label htmlFor="folder-upload">
+                          <Button 
+                            variant="default" 
+                            className="cursor-pointer"
+                            disabled={isUploading}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Choisir un dossier
+                          </Button>
+                        </label>
+                      </div>
+                    </div>
                   </div>
 
+                  {/* Individual Files Upload */}
+                  <div className="border-2 border-dashed border-muted rounded-lg p-6">
+                    <div className="text-center space-y-4">
+                      <FileText className="w-12 h-12 mx-auto text-muted-foreground" />
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">📄 Importer des fichiers individuels</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Sélectionnez plusieurs fichiers .md individuellement
+                        </p>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".md"
+                          onChange={handleFileUpload}
+                          disabled={isUploading}
+                          className="hidden"
+                          id="file-upload"
+                        />
+                        <label htmlFor="file-upload">
+                          <Button 
+                            variant="outline" 
+                            className="cursor-pointer"
+                            disabled={isUploading}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Choisir des fichiers
+                          </Button>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upload Status */}
                   {isUploading && (
                     <Alert>
+                      <Upload className="w-4 h-4" />
                       <AlertDescription>
                         Import en cours... Veuillez patienter.
                       </AlertDescription>
@@ -553,12 +605,25 @@ export default function App() {
                   )}
 
                   {uploadMessage && (
-                    <Alert>
+                    <Alert className={uploadMessage.includes('❌') ? 'border-destructive' : 'border-green-500'}>
                       <AlertDescription>
                         {uploadMessage}
                       </AlertDescription>
                     </Alert>
                   )}
+
+                  {/* Instructions */}
+                  <Card className="bg-muted/50">
+                    <CardHeader>
+                      <CardTitle className="text-sm">💡 Instructions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <p>• <strong>Format attendu</strong> : Fichiers .md exportés d'Obsidian</p>
+                      <p>• <strong>Structure</strong> : Titre avec kanji, lectures onyomi/kunyomi, traductions FR/EN</p>
+                      <p>• <strong>Métadonnées</strong> : Type (#nom, #verbe) et thème (#environnement)</p>
+                      <p>• <strong>Storage</strong> : Les données sont sauvegardées localement dans votre navigateur</p>
+                    </CardContent>
+                  </Card>
                 </CardContent>
               </Card>
             </TabsContent>
