@@ -104,9 +104,12 @@ async function handleRoute(request, { params }) {
   const route = `/${path.join('/')}`
   const method = request.method
 
+  console.log(`DEBUG: Route: ${route}, Method: ${method}, Path: ${JSON.stringify(path)}`)
+
   try {
     // Root endpoint - test without MongoDB first
-    if (route === '/' && method === 'GET') {
+    if ((route === '/' || route === '') && method === 'GET') {
+      console.log('DEBUG: Handling root endpoint')
       return handleCORS(NextResponse.json({ message: "AutoLearn JP API" }))
     }
 
