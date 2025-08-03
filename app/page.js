@@ -23,6 +23,40 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
 
+  // Demo data for initial setup
+  const demoWords = [
+    {
+      id: 1,
+      kanji: '火',
+      traductionFr: 'Feu / Flamme',
+      traductionEn: 'Fire / Flame',
+      kunyomi: 'ひ (hi), ほ (ho)',
+      onyomi: 'カ (ka)',
+      type: 'nom',
+      theme: 'environnement'
+    },
+    {
+      id: 2,
+      kanji: '水',
+      traductionFr: 'Eau',
+      traductionEn: 'Water',
+      kunyomi: 'みず (mizu)',
+      onyomi: 'スイ (sui)',
+      type: 'nom',
+      theme: 'environnement'
+    },
+    {
+      id: 3,
+      kanji: '食べる',
+      traductionFr: 'Manger',
+      traductionEn: 'To eat',
+      kunyomi: 'たべる (taberu)',
+      onyomi: 'ショク (shoku)',
+      type: 'verbe',
+      theme: 'nourriture'
+    }
+  ]
+
   // Load words from localStorage on mount
   useEffect(() => {
     // Try to load from localStorage first
