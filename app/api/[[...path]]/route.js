@@ -105,12 +105,12 @@ async function handleRoute(request, { params }) {
   const method = request.method
 
   try {
-    const db = await connectToMongo()
-
-    // Root endpoint
+    // Root endpoint - test without MongoDB first
     if (route === '/' && method === 'GET') {
       return handleCORS(NextResponse.json({ message: "AutoLearn JP API" }))
     }
+
+    const db = await connectToMongo()
 
     // Authentication endpoints
     if (route === '/auth/login' && method === 'POST') {
